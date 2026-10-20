@@ -1,0 +1,639 @@
+{
+  "uid": "acns-incident-investigation",
+  "title": "ACNS Incident Investigation",
+  "tags": [
+    "acns",
+    "demo",
+    "aks"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "ds",
+        "label": "Prometheus",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "hide": 0
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "name": "Demo steps",
+        "enable": true,
+        "iconColor": "orange",
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "target": {
+          "type": "tags",
+          "tags": [
+            "acns-demo"
+          ],
+          "limit": 200,
+          "matchAny": false
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "checkout-api success ratio",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.99
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(demo_requests_total{app=\"checkout-api\",result=\"ok\"}[2m])) / sum(rate(demo_requests_total{app=\"checkout-api\"}[2m]))",
+          "instant": false
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "checkout-api p95 latency",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 1.5
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le)(rate(demo_request_duration_seconds_bucket{app=\"checkout-api\"}[2m])))",
+          "instant": false
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "ACNS drops in checkout-demo (/s)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.1
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(hubble_drop_total{source=~\"checkout-demo/.*\"}[2m])) or vector(0)",
+          "instant": false
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Ready inventory pods",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(kube_pod_status_ready{namespace=\"checkout-demo\",pod=~\"inventory-.*\",condition=\"true\"})",
+          "instant": false
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "1. Application impact: success ratio by workload",
+      "description": "Application-side view (demo clients). Shows user impact, not the cause.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (app)(rate(demo_requests_total{result=\"ok\"}[2m])) / sum by (app)(rate(demo_requests_total[2m]))",
+          "legendFormat": "{{app}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "2. Application impact: failed requests by result",
+      "description": "timeout = packets not answered; dns_error = name resolution failed. Both look like failures to the app.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (app,result)(rate(demo_requests_total{result!=\"ok\"}[2m])) > 0",
+          "legendFormat": "{{app}} / {{result}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "3. Latency: p95 request duration by workload",
+      "description": "Slow dependency: latency rises for every caller while ACNS drops stay at zero.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le,app)(rate(demo_request_duration_seconds_bucket{app=~\"checkout-api|catalog-client\"}[2m])))",
+          "legendFormat": "{{app}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "4. ACNS: packet drops by workload and reason",
+      "description": "Source: Retina/Hubble drop counters attributed to Kubernetes workloads. policy_denied = NetworkPolicy.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (workload,reason)(label_replace(rate(hubble_drop_total{source=~\"checkout-demo/.*\"}[2m]),\"workload\",\"$1\",\"source\",\"checkout-demo/(.*)-[a-z0-9]+-[a-z0-9]+\"))",
+          "legendFormat": "from {{workload}} / {{reason}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (workload,reason)(label_replace(rate(hubble_drop_total{destination=~\"checkout-demo/.*\"}[2m]),\"workload\",\"$1\",\"destination\",\"checkout-demo/(.*)-[a-z0-9]+-[a-z0-9]+\"))",
+          "legendFormat": "to {{workload}} / {{reason}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "5. ACNS: TCP SYN rate (connection attempts) by workload",
+      "description": "Observed TCP connection attempts per workload. A blocked caller spends its time waiting for timeouts, so its attempt rate collapses. Use together with drops (4); the syn-ack counter is too sparse on this dataplane to use as a signal.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (workload)(label_replace(rate(hubble_tcp_flags_total{source=~\"checkout-demo/(checkout-api|catalog-client).*\",flag=\"syn\"}[2m]),\"workload\",\"$1\",\"source\",\"checkout-demo/(.*)-[a-z0-9]+-[a-z0-9]+\"))",
+          "legendFormat": "{{workload}} SYN/s"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "6. ACNS DNS: responses by return code",
+      "description": "NXDOMAIN ('non-existent domain') = the name is wrong. DNS server answered.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (workload,rcode)(label_replace(rate(hubble_dns_responses_total{destination=~\"checkout-demo/.*\"}[2m]),\"workload\",\"$1\",\"destination\",\"checkout-demo/(.*)-[a-z0-9]+-[a-z0-9]+\"))",
+          "legendFormat": "{{workload}} / {{rcode}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "7. ACNS DNS: queries sent vs responses received",
+      "description": "Queries with no matching responses = DNS traffic is being blocked (not a bad name).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 31
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (workload)(label_replace(rate(hubble_dns_queries_total{source=~\"checkout-demo/.*\"}[2m]),\"workload\",\"$1\",\"source\",\"checkout-demo/(.*)-[a-z0-9]+-[a-z0-9]+\"))",
+          "legendFormat": "queries {{workload}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (workload)(label_replace(rate(hubble_dns_responses_total{destination=~\"checkout-demo/.*\"}[2m]),\"workload\",\"$1\",\"destination\",\"checkout-demo/(.*)-[a-z0-9]+-[a-z0-9]+\"))",
+          "legendFormat": "responses {{workload}}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "8. Resilience: inventory pods Ready",
+      "description": "One line per pod name. A deleted pod disappears and a new pod name appears.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 31
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kube_pod_status_ready{namespace=\"checkout-demo\",pod=~\"inventory-.*\",condition=\"true\"}",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "text",
+      "title": "How to read this dashboard",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Vertical markers** are scenario steps posted by `demo.ps1`.\n\n| Symptom | Where to look | Meaning |\n|---|---|---|\n| Success ratio falls, drops (4) rise, connection attempts fall (5) | panels 1, 4, 5 | NetworkPolicy denial (`policy_denied`) |\n| Failures are `dns_error`, rcode NXDOMAIN (6) | panels 2, 6 | Wrong hostname; DNS is healthy |\n| Failures are `dns_error`, queries without responses (7), drops from the client | panels 2, 7, 4 | DNS traffic is blocked |\n| Latency rises (3) for all callers, drops flat (4) | panels 3, 4 | Slow dependency, **not** a network drop |\n| Pod count dips (8), success stays high | panels 8, 1 | Self-healing worked |\n\nManaged dashboards for drill-down: [Drops (Workload)](/d/NetObsDropsWorkload6738) | [DNS (Workload)](/d/NetObsDNSWorkload6738)"
+      }
+    }
+  ]
+}

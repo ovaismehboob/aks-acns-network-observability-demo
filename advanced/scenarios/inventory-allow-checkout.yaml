@@ -1,0 +1,20 @@
+# Scenario 1 (fix): additive, narrowly scoped allow rule. Isolation stays in place.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: inventory-allow-checkout
+  namespace: checkout-demo
+spec:
+  podSelector:
+    matchLabels:
+      app: inventory
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: checkout-api
+      ports:
+        - protocol: TCP
+          port: 8080

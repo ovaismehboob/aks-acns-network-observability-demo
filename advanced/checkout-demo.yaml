@@ -1,0 +1,233 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: checkout-demo
+---
+# inventory: the backend dependency. Replicas are shared by every caller.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory
+  namespace: checkout-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: inventory
+  template:
+    metadata:
+      labels:
+        app: inventory
+    spec:
+      containers:
+        - name: server
+          image: python:3.12-alpine
+          command: ["python", "-u", "/app/probe.py"]
+          env:
+            - { name: MODE, value: server }
+            - { name: NAME, value: inventory }
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 3
+          volumeMounts:
+            - { name: app, mountPath: /app }
+          resources:
+            requests: { cpu: 10m, memory: 24Mi }
+            limits: { cpu: 100m, memory: 96Mi }
+      volumes:
+        - name: app
+          configMap:
+            name: probe-app
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory
+  namespace: checkout-demo
+spec:
+  selector:
+    app: inventory
+  ports:
+    - { name: http, port: 80, targetPort: http }
+---
+# checkout-api: the workload that fails in scenarios 1 and 3.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout-api
+  namespace: checkout-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: checkout-api
+  template:
+    metadata:
+      labels:
+        app: checkout-api
+        metrics: probe
+    spec:
+      containers:
+        - name: client
+          image: python:3.12-alpine
+          command: ["python", "-u", "/app/probe.py"]
+          env:
+            - { name: MODE, value: client }
+            - { name: NAME, value: checkout-api }
+            - { name: TARGET, value: "http://inventory/stock" }
+          ports:
+            - { name: metrics, containerPort: 9100 }
+          volumeMounts:
+            - { name: app, mountPath: /app }
+          resources:
+            requests: { cpu: 10m, memory: 24Mi }
+            limits: { cpu: 100m, memory: 96Mi }
+      volumes:
+        - name: app
+          configMap:
+            name: probe-app
+---
+# catalog-client: healthy control that calls the same backend.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-client
+  namespace: checkout-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catalog-client
+  template:
+    metadata:
+      labels:
+        app: catalog-client
+        metrics: probe
+    spec:
+      containers:
+        - name: client
+          image: python:3.12-alpine
+          command: ["python", "-u", "/app/probe.py"]
+          env:
+            - { name: MODE, value: client }
+            - { name: NAME, value: catalog-client }
+            - { name: TARGET, value: "http://inventory/stock" }
+          ports:
+            - { name: metrics, containerPort: 9100 }
+          volumeMounts:
+            - { name: app, mountPath: /app }
+          resources:
+            requests: { cpu: 10m, memory: 24Mi }
+            limits: { cpu: 100m, memory: 96Mi }
+      volumes:
+        - name: app
+          configMap:
+            name: probe-app
+---
+# dns-typo-client: scenario 2a. Resolves a hostname that does not exist (NXDOMAIN).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dns-typo-client
+  namespace: checkout-demo
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: dns-typo-client
+  template:
+    metadata:
+      labels:
+        app: dns-typo-client
+        metrics: probe
+    spec:
+      containers:
+        - name: client
+          image: python:3.12-alpine
+          command: ["python", "-u", "/app/probe.py"]
+          env:
+            - { name: MODE, value: client }
+            - { name: NAME, value: dns-typo-client }
+            - { name: TARGET, value: "http://inventory-v2/stock" }
+            - { name: WORKERS, value: "1" }
+            - { name: INTERVAL, value: "1" }
+          ports:
+            - { name: metrics, containerPort: 9100 }
+          volumeMounts:
+            - { name: app, mountPath: /app }
+          resources:
+            requests: { cpu: 10m, memory: 24Mi }
+            limits: { cpu: 100m, memory: 96Mi }
+      volumes:
+        - name: app
+          configMap:
+            name: probe-app
+---
+# dns-blocked-client: scenario 2b. Valid hostname, but a policy denies all egress including DNS.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dns-blocked-client
+  namespace: checkout-demo
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: dns-blocked-client
+  template:
+    metadata:
+      labels:
+        app: dns-blocked-client
+        metrics: probe
+    spec:
+      containers:
+        - name: client
+          image: python:3.12-alpine
+          command: ["python", "-u", "/app/probe.py"]
+          env:
+            - { name: MODE, value: client }
+            - { name: NAME, value: dns-blocked-client }
+            - { name: TARGET, value: "http://inventory/stock" }
+          ports:
+            - { name: metrics, containerPort: 9100 }
+          volumeMounts:
+            - { name: app, mountPath: /app }
+          resources:
+            requests: { cpu: 10m, memory: 24Mi }
+            limits: { cpu: 100m, memory: 96Mi }
+      volumes:
+        - name: app
+          configMap:
+            name: probe-app
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dns-blocked-deny-all-egress
+  namespace: checkout-demo
+spec:
+  podSelector:
+    matchLabels:
+      app: dns-blocked-client
+  policyTypes:
+    - Egress
+---
+# Managed Prometheus scrape config for the demo clients.
+apiVersion: azmonitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: demo-probes
+  namespace: checkout-demo
+spec:
+  selector:
+    matchLabels:
+      metrics: probe
+  namespaceSelector:
+    matchNames:
+      - checkout-demo
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s

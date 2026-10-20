@@ -1,0 +1,21 @@
+# Scenario 1 (fault): a "hardening" change that only allows catalog-client to reach inventory.
+# checkout-api was forgotten, so its traffic is denied while every pod stays Running.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: inventory-restrict
+  namespace: checkout-demo
+spec:
+  podSelector:
+    matchLabels:
+      app: inventory
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: catalog-client
+      ports:
+        - protocol: TCP
+          port: 8080

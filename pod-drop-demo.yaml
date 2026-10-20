@@ -1,0 +1,138 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: netobs-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drop-client
+  namespace: netobs-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: drop-client
+  template:
+    metadata:
+      labels:
+        app: drop-client
+    spec:
+      containers:
+        - name: client
+          image: curlimages/curl:8.12.1
+          command:
+            - /bin/sh
+            - -c
+            - while true; do curl -sS --connect-timeout 1 http://healthy-server >/dev/null 2>&1 || true; sleep 0.2; done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-drop-client-egress
+  namespace: netobs-demo
+spec:
+  podSelector:
+    matchLabels:
+      app: drop-client
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthy-server
+  namespace: netobs-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: healthy-server
+  template:
+    metadata:
+      labels:
+        app: healthy-server
+    spec:
+      containers:
+        - name: server
+          image: curlimages/curl:8.12.1
+          command:
+            - /bin/sh
+            - -c
+            - |
+              while true; do
+                printf 'HTTP/1.1 200 OK\r\nContent-Length: 3\r\nConnection: close\r\n\r\nok\n' | nc -l -p 8080
+              done
+          ports:
+            - name: http
+              containerPort: 8080
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: healthy-server
+  namespace: netobs-demo
+spec:
+  selector:
+    app: healthy-server
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthy-client
+  namespace: netobs-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: healthy-client
+  template:
+    metadata:
+      labels:
+        app: healthy-client
+    spec:
+      containers:
+        - name: client
+          image: curlimages/curl:8.12.1
+          command:
+            - /bin/sh
+            - -c
+            - while true; do curl -fsS --max-time 2 http://healthy-server >/dev/null || true; sleep 0.2; done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
