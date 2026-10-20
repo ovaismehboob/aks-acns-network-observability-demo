@@ -59,7 +59,11 @@ Credentials are acquired through Azure CLI and are not configuration-file values
 
 Screenshots, raw command evidence, exported PDF/DOCX/HTML guides, local configuration, logs, and Python caches are excluded by [.gitignore](./.gitignore). Original guides are retained locally under `.local\original-guides` when preparing this publication. Public Markdown is self-contained; historical measurements are illustrative rehearsal results, not a guarantee for a new environment.
 
-Do not force-add ignored files. Review the staged file list and run an approved secret scanner before pushing. No license is selected here; the owner should choose appropriate reuse terms before distributing this as an open-source project.
+Do not force-add ignored files. Review the staged file list and run an approved secret scanner before pushing.
+
+## License
+
+This project is licensed under the [MIT License](./LICENSE).
 
 Optional evidence capture requires Python 3.10+, Google Chrome, and:
 
